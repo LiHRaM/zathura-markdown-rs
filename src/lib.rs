@@ -47,6 +47,7 @@ impl ZathuraPlugin for PluginType {
     ) -> Result<(), PluginError> {
         let line_height = 25.0;
         let indent = 5.0;
+        let mut indent_mult = 1.0;
         let context = pangocairo::functions::create_context(cairo).expect("Creating pango context failed!");
         let mut line = 0.0;
         let parser = Parser::new_ext(doc_data, Options::empty());
@@ -54,6 +55,7 @@ impl ZathuraPlugin for PluginType {
         let mut last_family: Option<&str> = None;
         let mut last_style: Option<pango::Style> = None;
         let mut last_weight: Option<pango::Weight> = None;
+        let mut list_indices: Vec<Option<u64>> = vec![];
         for event in parser {
             let layout = pangocairo::functions::create_layout(cairo).unwrap();
             let mut font_desc = FontDescription::new();
@@ -90,8 +92,26 @@ impl ZathuraPlugin for PluginType {
                                 pulldown_cmark::CodeBlockKind::Fenced(_) => {}
                             }
                         }
-                        pulldown_cmark::Tag::List(_) => {}
-                        pulldown_cmark::Tag::Item => {}
+                        pulldown_cmark::Tag::List(l) => {
+                            list_indices.push(l);
+                            println!("{:#?}", l);
+                            indent_mult += 3.0;
+                        }
+                        pulldown_cmark::Tag::Item => {
+                            let index = list_indices.pop().unwrap();
+                            let text = match index {
+                                Some(i) => {
+                                    list_indices.push(Some(i + 1));
+                                    format!("{}. ", i)
+                                },
+                                None => {
+                                    list_indices.push(None);
+                                    "» ".to_string()
+                                },
+                            };
+                            layout.set_text(&text);
+                            cairo.move_to(indent * (indent_mult - 3.0), line);
+                        }
                         pulldown_cmark::Tag::FootnoteDefinition(_) => {}
                         pulldown_cmark::Tag::Table(_) => {}
                         pulldown_cmark::Tag::TableHead => {}
@@ -120,7 +140,10 @@ impl ZathuraPlugin for PluginType {
                         pulldown_cmark::Tag::CodeBlock(_) => {
                             last_family = None;
                         }
-                        pulldown_cmark::Tag::List(_) => {}
+                        pulldown_cmark::Tag::List(l) => {
+                            list_indices.pop();
+                            indent_mult -= 3.0;
+                        }
                         pulldown_cmark::Tag::Item => {}
                         pulldown_cmark::Tag::FootnoteDefinition(_) => {}
                         pulldown_cmark::Tag::Table(_) => {}
@@ -141,13 +164,13 @@ impl ZathuraPlugin for PluginType {
                 pulldown_cmark::Event::Text(t) => {
                     font_desc.set_family("sans");
                     layout.set_text(t.as_ref());
-                    cairo.move_to(indent, line);
+                    cairo.move_to(indent * indent_mult, line);
                     line += line_height;
                 }
                 pulldown_cmark::Event::Code(t) => {
                     font_desc.set_family("mono");
                     layout.set_text(t.as_ref());
-                    cairo.move_to(indent, line);
+                    cairo.move_to(indent * indent_mult, line);
                     line += line_height;
                 }
                 pulldown_cmark::Event::Html(_) => {}
