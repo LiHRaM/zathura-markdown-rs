@@ -11,5 +11,5 @@ test: build
 
 .PHONY: install
 install:
-    install -D "${ZATHURA_PLUGINS_DIR}"
-    install -m 644 "${CARGO_TARGET_DIR}/release/*.so" "${ZATHURA_PLUGINS_DIR}"
+	install -D "${ZATHURA_PLUGINS_DIR}"
+	install -m 644 "${CARGO_TARGET_DIR}/release/*.so" "${ZATHURA_PLUGINS_DIR}"
